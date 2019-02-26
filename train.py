@@ -13,52 +13,25 @@ class Training(data_tool, Model):
             self.sess = tf.Session()
             with self.sess.as_default():
                 Model.__init__(self, sequence_length=5, cell_size=128, vectors=self.embedding_matrix)
-                global_step = tf.Variable(0, name='global_step', trainable=False)
-                lr = tf.train.exponential_decay(0.001, global_step=global_step, decay_steps=10000, decay_rate=1)
+                self.global_step = tf.Variable(0, name='global_step', trainable=False)
+                lr = tf.train.exponential_decay(0.001, global_step=self.global_step, decay_steps=10000, decay_rate=1) #学习率衰减
                 optimizer = tf.train.AdamOptimizer(lr)
                 grads_and_vars = optimizer.compute_gradients(self.loss)
-                train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
+                self.train_op = optimizer.apply_gradients(grads_and_vars, global_step=self.global_step)
 
                 # Summary for loss and accuracy
                 loss_summary = tf.summary.scalar("loss", self.loss)
                 acc_summary = tf.summary.scalar("accuracy", self.accuracy)
 
                 # Train Summaries
-                train_summary_op = tf.summary.merge([loss_summary, acc_summary])
+                self.train_summary_op = tf.summary.merge([loss_summary, acc_summary])
                 train_summary_dir = os.path.join( "summaries", "train")
-                train_summary_writer = tf.summary.FileWriter(train_summary_dir, self.sess.graph)
+                self.train_summary_writer = tf.summary.FileWriter(train_summary_dir, self.sess.graph)
 
                 # Test Summaries
-                test_summary_op = tf.summary.merge([loss_summary, acc_summary])
+                self.test_summary_op = tf.summary.merge([loss_summary, acc_summary])
                 test_summary_dir = os.path.join( 'summaries', 'test')
-                test_summary_writer = tf.summary.FileWriter(test_summary_dir, self.sess.graph)
-
-                # define operations
-                def train_(batch_x, batch_y, category, total):
-                    feed_dict = {self.stock_x: batch_x,
-                                 self.stock_y: batch_y,
-                                 self.text_x: category}
-
-                    loss, _, accuracy, step, summaries = self.sess.run(
-                        [self.loss, train_op, self.accuracy, global_step, train_summary_op],
-                        feed_dict=feed_dict)
-
-                    time_str = datetime.datetime.now().isoformat()
-                    print("{}: step {}/{}, loss {:g}, acc {:g}".format(time_str, step, total, loss, accuracy))
-                    train_summary_writer.add_summary(summaries, step)
-
-                def test_():
-                    feed_dict = {self.stock_x: self.stock_x_test,
-                                 self.stock_y: self.stock_y_test,
-                                 self.text_x: self.text_x_test}
-                    loss, accuracy, step, summaries = self.sess.run(
-                        [self.loss, self.accuracy, global_step, test_summary_op],
-                        feed_dict=feed_dict)
-
-                    time_str = datetime.datetime.now().isoformat()
-                    print("Test: {}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
-                    test_summary_writer.add_summary(summaries, step)
-                    return loss, accuracy
+                self.test_summary_writer = tf.summary.FileWriter(test_summary_dir, self.sess.graph)
 
                 # initialize
                 self.sess.run(tf.global_variables_initializer())
@@ -68,16 +41,16 @@ class Training(data_tool, Model):
                                                       epoch_size=15,
                                                       batch_size=10, shuffle=True)
 
-                total = (len(self.stock_y_train) // 32 + 1) * 5
+                total = (len(self.stock_y_train) // 10 + 1) * 15
                 # training on batches
                 print("Total step:", total)
                 for i, batch in enumerate(batches_train):
                     batch_x, batch_y, batch_category = batch
-                    train_(batch_x, batch_y, batch_category, total)
-                    current_step = tf.train.global_step(self.sess, global_step)
+                    self.train_(batch_x, batch_y, batch_category, total)
+                    current_step = tf.train.global_step(self.sess, self.global_step)
                     if i % 2 == 0 and i > 0:
                         print('\nEvaluation:\n')
-                        loss, accuracy = test_()
+                        self.test_()
                         # print("Writing model...\n")
                         # saver.save(self.sess, checkpoint_model_dir, global_step=current_step)
                     if current_step == 1800:
@@ -102,6 +75,34 @@ class Training(data_tool, Model):
         print("Test data accuracy:", np.mean(np.equal(np.argmax(self.test_y, axis=1), result)))
         self.test['pred'] = result+1
         self.test.to_csv(os.path.join(self.outdir, 'reviewBiLSTM_runs', save, "reviewbiLSTM.tsv"), sep='\t')
+
+    # define operations
+    def train_(self, batch_x, batch_y, category, total):
+        feed_dict = {self.stock_x: batch_x,
+                     self.stock_y: batch_y,
+                     self.text_x: category}
+
+        loss, _, accuracy, step, summaries = self.sess.run(
+            [self.loss, self.train_op, self.accuracy, self.global_step, self.train_summary_op],
+            feed_dict=feed_dict)
+
+        time_str = datetime.datetime.now().isoformat()
+        print("{}: step {}/{}, loss {:g}, acc {:g}".format(time_str, step, total, loss, accuracy))
+        self.train_summary_writer.add_summary(summaries, step)
+
+    def test_(self):
+        feed_dict = {self.stock_x: self.stock_x_test,
+                     self.stock_y: self.stock_y_test,
+                     self.text_x: self.text_x_test}
+        loss, accuracy, step, summaries = self.sess.run(
+            [self.loss, self.accuracy, self.global_step, self.test_summary_op],
+            feed_dict=feed_dict)
+
+        time_str = datetime.datetime.now().isoformat()
+        print("Test: {}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
+        self.test_summary_writer.add_summary(summaries, step)
+
+
 
 if __name__ == '__main__':
     Training()

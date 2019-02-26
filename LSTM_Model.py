@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.contrib.layers import fully_connected
 from tensorflow.contrib import rnn
 
-class Model(object):
+class Model:
     def __init__(self, sequence_length, cell_size, vectors):
         self.stock_x = tf.placeholder(tf.float32, shape=[None, sequence_length, 1], name='stock_x')
         self.stock_y = tf.placeholder(tf.int32, shape=[None, 2], name='stock_y')
@@ -32,7 +32,7 @@ class Model(object):
         with tf.name_scope("LSTM"):
             lstm_cell = rnn.BasicLSTMCell(cell_size, name='lstm_cell')
             lstm_cell = rnn.DropoutWrapper(lstm_cell, output_keep_prob=0.8)
-            output, states = tf.nn.dynamic_rnn(lstm_cell, self.combined_x, dtype=tf.float32)
+            output, states = tf.nn.dynamic_rnn(lstm_cell, self.embedding_texts_att, dtype=tf.float32)
 
         with tf.name_scope('output'):
             output_w = tf.get_variable("output_weight", shape=[cell_size, 2],
