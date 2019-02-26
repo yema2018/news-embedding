@@ -15,9 +15,16 @@ class Model(object):
             self.embedding_texts = tf.nn.embedding_lookup(embedding_W, self.text_x, name='embedded_vertices')
 
         # attention on texts
-        self.preAttention = tf.reshape(self.embedding_texts, shape=[-1, 220, vectors.shape[-1]])
-        self.embedding_texts_att = self.Attention_Layer(self.preAttention, "attention_part")
-        self.embedding_texts_att = tf.reshape(self.embedding_texts_att, shape=[-1, sequence_length, 128])
+        self.pre = tf.reshape(self.embedding_texts, shape=[-1, 220, vectors.shape[-1]])
+        self.average = tf.reduce_sum(self.pre,axis=1)
+        # with tf.name_scope('Con1V'):
+        #     filiter = tf.get_variable('kernel', initializer=tf.truncated_normal([3,128,128]))
+        #     cnn_bias = tf.get_variable('cnn_bias', initializer=tf.constant(0.1,shape=[128]))
+        #     h_conv1 = tf.nn.tanh(tf.nn.conv1d(self.pre, filiter, 1, 'SAME') + cnn_bias)
+        #     max_pool = tf.reduce_max(h_conv1,axis=1)
+
+        # self.embedding_texts_att = self.Attention_Layer(self.preAttention, "attention_part")
+        self.embedding_texts_att = tf.reshape(self.average, shape=[-1, sequence_length, 128])
 
         # combine texts and stock: [batch_size, sequence_length, embedding+stock]
         self.combined_x = tf.concat([self.stock_x, self.embedding_texts_att], axis=-1)
@@ -56,8 +63,11 @@ class Model(object):
             h = fully_connected(input_, shape[-1].value, tf.nn.tanh)
 
             # :[*batch_size, length_*, 1]
-            alpha = tf.nn.softmax(tf.reduce_sum(tf.multiply(weight, h), keepdims=True, axis=-2), dim=1)
+            alpha = tf.nn.softmax(tf.reduce_sum(tf.multiply(weight, h), keepdims=True, axis=-1), axis=1,name='alpha')
+            # alpha = fully_connected(h,1,tf.nn.softmax)
 
             # :[*batch_size, hidden_units*2]
             return tf.reduce_sum(tf.multiply(input_, alpha), axis=1)
+
+
 

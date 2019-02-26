@@ -12,7 +12,7 @@ class Training(data_tool, Model):
         with tf.Graph().as_default():
             self.sess = tf.Session()
             with self.sess.as_default():
-                Model.__init__(self, sequence_length=9, cell_size=128, vectors=self.embedding_matrix)
+                Model.__init__(self, sequence_length=5, cell_size=128, vectors=self.embedding_matrix)
                 global_step = tf.Variable(0, name='global_step', trainable=False)
                 lr = tf.train.exponential_decay(0.001, global_step=global_step, decay_steps=10000, decay_rate=1)
                 optimizer = tf.train.AdamOptimizer(lr)

@@ -2,13 +2,13 @@ import pandas as pd
 import numpy as np
 import json
 from tensorflow.contrib import learn
-from sklearn.preprocessing import LabelBinarizer
+from sklearn.preprocessing import LabelBinarizer,scale
 from datetime import datetime
 
 
 class data_tool:
     def __init__(self, stock_price_path='sz50.csv', embedding_path='emd_10_all.emd', event_date='date_index.json',
-                 windowsize=10):
+                 windowsize=6):
         print("initialization")
         self.stock = pd.read_csv(stock_price_path, encoding='gbk')
         embedding = list(open(embedding_path, 'r'))
@@ -33,8 +33,9 @@ class data_tool:
         self.stock.index = [datetime.strftime(datetime.strptime(i, "%Y-%m-%d"), "%Y%m%d")
                             for i in self.stock.index]
         self.stock = self.stock.join(self.date_index, how='inner')
-        self.stock = self.stock.iloc[:-1]
-        self.stock.iloc[:, 0] = self.stock.iloc[:, 0].astype('float')
+        # self.stock['涨跌幅'] = scale(self.stock['涨跌幅'].copy())
+        # self.stock = self.stock.iloc[:-1]
+        self.stock.iloc[:, 0] = scale(self.stock.iloc[:, 0].astype('float'))
 
         # build vocabulary processor
         self.processor = learn.preprocessing.VocabularyProcessor(max_document_length=max_document_length,
