@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.contrib.layers import fully_connected
-from tensorflow.contrib import rnn
+from tensorflow.contrib import rnn,cudnn_rnn
+
 
 class Model:
     def __init__(self, sequence_length, cell_size, vectors):
@@ -30,16 +31,15 @@ class Model:
         self.combined_x = tf.concat([self.stock_x, self.embedding_texts_att], axis=-1)
 
         with tf.name_scope("LSTM"):
-            lstm_cell = rnn.BasicLSTMCell(cell_size, name='lstm_cell')
-            lstm_cell = rnn.DropoutWrapper(lstm_cell, output_keep_prob=0.8)
-            output, states = tf.nn.dynamic_rnn(lstm_cell, self.embedding_texts_att , dtype=tf.float32)
+            lstm_cell = cudnn_rnn.CudnnLSTM(1, cell_size, dropout=0.2)
+            output, state = lstm_cell(inputs=self.embedding_texts_att)
 
         with tf.name_scope('output'):
             output_w = tf.get_variable("output_weight", shape=[cell_size, 2],
                                        initializer=tf.truncated_normal_initializer(mean=0, stddev=0.01))
             output_b = tf.get_variable("output_bias", initializer=tf.constant([0.01] * 2))
 
-            self.scores = tf.nn.xw_plus_b(states[-1], output_w, output_b, name="ouput_layer")
+            self.scores = tf.nn.xw_plus_b(output[:, -1, :], output_w, output_b, name="ouput_layer")
             self.output = tf.argmax(self.scores, axis=1)
 
         with tf.name_scope("loss_accuracy"):
