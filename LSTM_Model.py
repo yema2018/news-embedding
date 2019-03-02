@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.contrib.layers import fully_connected
-from tensorflow.contrib import rnn,cudnn_rnn
+from tensorflow.contrib import cudnn_rnn
 
 
 class Model:
@@ -17,15 +17,15 @@ class Model:
 
         # attention on texts
         self.pre = tf.reshape(self.embedding_texts, shape=[-1, 220, vectors.shape[-1]])
-        # self.average = tf.reduce_sum(self.pre,axis=1)
+        self.average = tf.reduce_sum(self.pre,axis=1)
         # with tf.name_scope('Con1V'):
         #     filiter = tf.get_variable('kernel', initializer=tf.truncated_normal([3,128,128]))
         #     cnn_bias = tf.get_variable('cnn_bias', initializer=tf.constant(0.1,shape=[128]))
         #     h_conv1 = tf.nn.tanh(tf.nn.conv1d(self.pre, filiter, 1, 'SAME') + cnn_bias)
         #     max_pool = tf.reduce_max(h_conv1,axis=1)
 
-        self.embedding_texts_att = self.Attention_Layer(self.pre, "attention_part")
-        self.embedding_texts_att = tf.reshape(self.embedding_texts_att, shape=[-1, sequence_length, 128])
+        # self.embedding_texts_att = self.Attention_Layer(self.pre, "attention_part")
+        self.embedding_texts_att = tf.reshape(self.average, shape=[-1, sequence_length, 128])
 
         # combine texts and stock: [batch_size, sequence_length, embedding+stock]
         self.combined_x = tf.concat([self.stock_x, self.embedding_texts_att], axis=-1)
@@ -57,16 +57,15 @@ class Model:
         shape = input_.shape
         input_1 = tf.reshape(input_, shape=[-1,shape[1].value*shape[2].value])
         with tf.name_scope('%s_Attention' % name):
-            # weight = tf.get_variable("AttentionWeight_%s" % name,
-            #                          initializer=tf.truncated_normal([shape[-1].value], mean=0, stddev=0.01),
-            #                          dtype=tf.float32)
+            weight = tf.get_variable("AttentionWeight_%s" % name,
+                                     initializer=tf.truncated_normal([shape[-1].value], mean=0, stddev=0.01),
+                                     dtype=tf.float32)
             # :[*batch_size, length_*, hidden_units * 2]
-            # h = fully_connected(input_, shape[-1].value, tf.nn.tanh)
+            h = fully_connected(input_, shape[-1].value, tf.nn.tanh)
 
             # :[*batch_size, length_*, 1]
-            # alpha = tf.nn.softmax(tf.reduce_sum(tf.multiply(weight, h), keepdims=True, axis=-1), axis=1,name='alpha')
-            alpha = fully_connected(input_1, 220, tf.nn.softmax)
-            alpha = tf.reshape(alpha, shape = [-1, 220, 1])
+            alpha = tf.nn.softmax(tf.reduce_sum(tf.multiply(weight, h), keepdims=True, axis=-1), axis=1,name='alpha')
+
             # :[*batch_size, hidden_units*2]
             return tf.reduce_sum(tf.multiply(input_, alpha), axis=1)
 
